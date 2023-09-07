@@ -5,13 +5,14 @@ import asyncHandler from 'express-async-handler';
 
 const authMiddleware = asyncHandler(async (req, res, next) => {
   let token;
-  console.log(req);
-  if (req?.header.Authorization?.startsWith('Bearer')) {
-    token = req.header.Authorization.split(' ')[1];
+  if (req?.headers?.authorization?.startsWith('Bearer')) {
+    token = req.headers?.authorization.split(' ')[1];
     try {
       if (token) {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        console.log(decoded);
+        const user = await User.findById(decoded?.id);
+        req.user = user;
+        next();
       }
     } catch (error) {
       throw new Error('Not Authorized token expried. Please login again');
@@ -21,4 +22,11 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
   }
 });
 
-export { authMiddleware };
+const isAdmin = asyncHandler(async (req, res, next) => {
+  if (req.user.role !== 'admin') {
+    throw new Error('you are not a admin');
+  } else {
+    next();
+  }
+});
+export { authMiddleware, isAdmin };
