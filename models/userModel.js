@@ -1,6 +1,7 @@
 import { Schema, model } from 'mongoose'; // Erase if already required
 
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 
 let ObjectId = Schema.ObjectId;
 
@@ -55,13 +56,20 @@ var userSchema = new Schema(
     refreshToken: {
       type: String,
     },
+    passwordChangeAt: Date,
+    passwordResetToken: String,
+    passwordResetExpires: Date,
   },
   {
     timestamps: true,
+    // typeKey: '$type',
   },
 );
 
 userSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) {
+    next();
+  }
   const saltRounds = 5;
   const salt = await bcrypt.genSaltSync(saltRounds);
   this.password = await bcrypt.hash(this.password, salt);
@@ -69,6 +77,16 @@ userSchema.pre('save', async function (next) {
 
 userSchema.methods.isPasswordMatched = async function (enterPassword) {
   return await bcrypt.compare(enterPassword, this.password);
+};
+
+userSchema.methods.createPasswordResetToken = async function () {
+  const resettoken = crypto.randomBytes(32).toString('hex');
+  this.passwordResetToken = crypto
+    .createHash('sha256')
+    .update(resettoken)
+    .digest('hex');
+  this.passwordResetExpires = Date.now() + 30 * 60 * 1000; // 10minutes
+  return resettoken;
 };
 
 //Export the model
